@@ -123,7 +123,7 @@ The growth process follows these steps each iteration:
    For each branch system:
 
    $$
-   P_{total} = \sum_{branches} \sum_{leaves} L_g
+   P_{\text{total}} = \sum_{\text{branches}} \sum_{\text{leaves}} L_g
    $$
 
 3. Space Management:
