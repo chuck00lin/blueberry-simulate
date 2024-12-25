@@ -119,12 +119,11 @@ The growth process follows these steps each iteration:
    - Check for branching conditions
    - Grow sub-branches recursively
 
-2. Photosynthesis Calculation:
-   For each branch system:
+2. Photosynthesis Calculation: For each branch system:
 
-   $$
-   P_{\text{total}} = \sum_{\text{branches}} \sum_{\text{leaves}} L_g
-   $$
+$$
+P_{\text{total}} = \sum_{\text{branches}} \sum_{\text{leaves}} L_g
+$$
 
 3. Space Management:
    - Check available area before adding new branches
