@@ -19,7 +19,9 @@ A leaf is the basic unit of photosynthesis in the model.
 #### Light Gain Equation:
 The light gain for each leaf follows the Beer-Lambert law:
 
-$$ L_g = I_0 \cdot (1 - e^{-k \cdot LAI}) \cdot \eta_p \cdot f_c $$
+$$
+L_g = I_0 \cdot (1 - e^{-k \cdot LAI}) \cdot \eta_p \cdot f_c
+$$
 
 Where:
 - $L_g$: Light gain
@@ -46,14 +48,22 @@ Branches are the structural components that support leaves and can produce sub-b
 #### Growth Mechanisms:
 
 1. Length Growth:
-$$ l_{t+1} = min(l_t + g_r, l_{max}) $$
+$$
+l_{t+1} = \min(l_t + g_r, l_{max})
+$$
 
 2. Structure Complexity:
-$$ f_c = min(1.0, 0.1 \cdot age) $$
+$$
+f_c = \min(1.0, 0.1 \cdot \text{age})
+$$
 
 3. Node Position:
-$$ x_{node} = x_s + l \cdot cos(\theta) $$
-$$ y_{node} = y_s + l \cdot sin(\theta) $$
+$$
+x_{node} = x_s + l \cdot \cos(\theta)
+$$
+$$
+y_{node} = y_s + l \cdot \sin(\theta)
+$$
 
 4. Branching Conditions:
 - Length condition: $l \geq l_{threshold}$
@@ -76,11 +86,15 @@ The main plant class that manages overall growth and resource allocation.
 #### Growth Constraints:
 
 1. Total Branch Area Constraint:
-$$ \sum_{i=1}^{n} (1 + n_{sub,i}) \cdot A_{branch} \leq A_{total} $$
+$$
+\sum_{i=1}^{n} (1 + n_{sub,i}) \cdot A_{branch} \leq A_{total}
+$$
 Where $n_{sub,i}$ is the number of sub-branches for branch $i$
 
 2. Branch Spacing Constraint:
-$$ |\theta_i - \theta_j| > \frac{\pi}{6} \text{ for all main branches } i,j $$
+$$
+|\theta_i - \theta_j| > \frac{\pi}{6} \text{ for all main branches } i,j
+$$
 
 ## 2. Growth Process
 
