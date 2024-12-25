@@ -48,19 +48,23 @@ Branches are the structural components that support leaves and can produce sub-b
 #### Growth Mechanisms:
 
 1. Length Growth:
+
 $$
 L_{t+1} = \min(L_t + g_r, L_{max})
 $$
 
 2. Structure Complexity:
+
 $$
 f_c = \min(1.0, 0.1 \cdot \text{age})
 $$
 
 3. Node Position:
+
 $$
 x_{node} = x_s + l \cdot \cos(\theta)
 $$
+
 $$
 y_{node} = y_s + l \cdot \sin(\theta)
 $$
@@ -71,9 +75,11 @@ $$
 - Space condition: $n_{nearby} < 2$ within radius $r = 0.3$
 
 5. Sub-branch Angles:
+
 $$
 \theta_{sub1} = \theta + \frac{\pi}{4}
 $$
+
 $$
 \theta_{sub2} = \theta - \frac{\pi}{6}
 $$
@@ -90,12 +96,15 @@ The main plant class that manages overall growth and resource allocation.
 #### Growth Constraints:
 
 1. Total Branch Area Constraint:
+
 $$
 \sum_{i=1}^{n} (1 + n_{sub,i}) \cdot A_{branch} \leq A_{total}
 $$
+
 Where $n_{sub,i}$ is the number of sub-branches for branch $i$
 
 2. Branch Spacing Constraint:
+
 $$
 |\theta_i - \theta_j| > \frac{\pi}{6} \text{ for all main branches } i,j
 $$
