@@ -49,7 +49,7 @@ Branches are the structural components that support leaves and can produce sub-b
 
 1. Length Growth:
 $$
-l_{t+1} = \min(l_t + g_r, l_{max})
+L_{t+1} = \min(L_t + g_r, L_{max})
 $$
 
 2. Structure Complexity:
@@ -71,8 +71,12 @@ $$
 - Space condition: $n_{nearby} < 2$ within radius $r = 0.3$
 
 5. Sub-branch Angles:
-$$ \theta_{sub1} = \theta + \frac{\pi}{4} $$
-$$ \theta_{sub2} = \theta - \frac{\pi}{6} $$
+$$
+\theta_{sub1} = \theta + \frac{\pi}{4}
+$$
+$$
+\theta_{sub2} = \theta - \frac{\pi}{6}
+$$
 
 ### 1.3 Blueberry (Plant) Class
 
