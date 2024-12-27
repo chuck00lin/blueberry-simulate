@@ -243,6 +243,32 @@ class Branch:
             check_branch(main_branch)
         return nearby
 
+    def get_all_sub_branches(self):
+        """
+        Return a list of all this branch's sub-branches (recursively).
+        This excludes 'self' if you only want the true sub-branches.
+        """
+        branches = []
+        for sb in self.sub_branches:
+            branches.append(sb)
+            branches.extend(sb.get_all_sub_branches())
+        return branches
+
+    def recheck_status_after_pruning(self):
+        """
+        Re-check if this branch can resume growth now that some
+        branches have been pruned.
+        """
+        from enum import Enum
+        # Only re-check if the reason for stopping was space or overcrowding
+        if self.status in [BranchStatus.STOPPED_SPACE_CONSTRAINT, BranchStatus.STOPPED_OVERCROWDED]:
+            if not self.is_overcrowded(self.get_end_pos()):
+                self.status = BranchStatus.GROWING
+
+        # Re-check sub-branches as well
+        for sb in self.sub_branches:
+            sb.recheck_status_after_pruning()
+
 class Blueberry:
     def __init__(self, area: float = 3.0, branch_area: float = 0.1):
         self.area = area
@@ -357,17 +383,103 @@ class Blueberry:
         plt.tight_layout()
         plt.pause(0.1)
 
-def run_simulation(steps: int = 150):
+    def prune(self, prune_ratio=0.2):
+        """
+        Prune the plant by removing prune_ratio (e.g., 0.2 = 20%)
+        of all existing sub-branches, chosen randomly.
+        """
+        import numpy as np
+        
+        # 1. Gather all sub-branches from every main branch
+        all_sub_branches = []
+        for main_branch in self.branches:
+            # Get only its sub-branches (excluding the main branch itself)
+            all_sub_branches.extend(main_branch.get_all_sub_branches())
+
+        if not all_sub_branches:
+            return
+
+        # 2. Determine how many to prune
+        total_count = len(all_sub_branches)
+        to_prune_count = int(prune_ratio * total_count)
+        if to_prune_count <= 0:
+            return  # Nothing to prune
+
+        # 3. Randomly pick sub-branches to prune
+        indices_to_prune = np.random.choice(
+            range(total_count),
+            size=to_prune_count,
+            replace=False
+        )
+        pruned_branches = [all_sub_branches[i] for i in indices_to_prune]
+
+        # 4. Remove them by removing from their parent's sub_branches list
+        for branch in pruned_branches:
+            if branch.parent is not None and branch in branch.parent.sub_branches:
+                branch.parent.sub_branches.remove(branch)
+
+        # 5. After pruning, re-check statuses for possible regrowth
+        for main_branch in self.branches:
+            main_branch.recheck_status_after_pruning()
+
+def run_simulation(steps: int = 150, enable_pruning: bool = False, random_seed: int = 42):
+    """
+    Run a single simulation with or without pruning.
+    
+    Args:
+        steps: Number of simulation steps
+        enable_pruning: Whether to enable pruning
+        random_seed: Seed for random number generation
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_seed)
+    
     plt.ion()
     plt.figure(figsize=(12, 5))
     plant = Blueberry()
     
     for step in range(steps):
+        # Grow the plant
         plant.grow()
+
+        # Different pruning intensities at different times
+        if enable_pruning:
+            if step == 50:
+                plant.prune(prune_ratio=0.2)  # Heavy initial pruning
+            elif step == 100:
+                plant.prune(prune_ratio=0.2)  # Moderate middle pruning
+            elif step == 150:
+                plant.prune(prune_ratio=0.2)  # Light final pruning
+
+        # Visualize
         plant.visualize(step)
     
     plt.ioff()
+    return plant.photosynthesis_history
+
+def compare_pruning_strategies(steps: int = 150, random_seed: int = 42):
+    """
+    Compare pruning vs non-pruning strategies using the same initial conditions.
+    """
+    # Run simulation without pruning
+    no_pruning_history = run_simulation(steps=steps, enable_pruning=False, random_seed=random_seed)
+    
+    # Run simulation with pruning
+    pruning_history = run_simulation(steps=steps, enable_pruning=True, random_seed=random_seed)
+    
+    # Plot comparison
+    plt.figure(figsize=(10, 6))
+    plt.plot(no_pruning_history, 'b-', label='No Pruning')
+    plt.plot(pruning_history, 'r-', label='With Pruning')
+    plt.title('Comparison of Pruning Strategies')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Photosynthesis Rate')
+    plt.legend()
+    plt.grid(True)
     plt.show()
 
 if __name__ == "__main__":
-    run_simulation()
+    # Try different random seeds
+    for seed in [42, 123, 456]:
+        print(f"\nTrying seed: {seed}")
+        compare_pruning_strategies(random_seed=seed)

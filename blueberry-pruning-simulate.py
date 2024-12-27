@@ -243,6 +243,35 @@ class Branch:
             check_branch(main_branch)
         return nearby
 
+    def get_all_sub_branches(self):
+        """
+        Return a list of all this branch's sub-branches (recursively).
+        This excludes 'self' if you only want the true sub-branches.
+        """
+        branches = []
+        for sb in self.sub_branches:
+            branches.append(sb)
+            branches.extend(sb.get_all_sub_branches())
+        return branches
+
+    def recheck_status_after_pruning(self):
+        """
+        Re-check if this branch can resume growth now that some
+        branches have been pruned.
+        """
+        from enum import Enum
+        # Only re-check if the reason for stopping was space or overcrowding
+        if self.status in [BranchStatus.STOPPED_SPACE_CONSTRAINT, BranchStatus.STOPPED_OVERCROWDED]:
+            if not self.is_overcrowded(self.get_end_pos()):
+                self.status = BranchStatus.GROWING
+                # Reset growth-related parameters to allow continued growth
+                self.length = min(self.length, self.max_length)  # Ensure within bounds
+                self.last_branch_length = self.length  # Reset branching position
+
+        # Re-check sub-branches as well
+        for sb in self.sub_branches:
+            sb.recheck_status_after_pruning()
+
 class Blueberry:
     def __init__(self, area: float = 3.0, branch_area: float = 0.1):
         self.area = area
@@ -357,17 +386,172 @@ class Blueberry:
         plt.tight_layout()
         plt.pause(0.1)
 
-def run_simulation(steps: int = 150):
+        # Add status counts to display
+        status_counts = self.get_branch_status_counts()
+        print("\nBranch Status Counts:")
+        for status, count in status_counts.items():
+            print(f"{status.value}: {count}")
+
+    def count_overcrowded_branches(self) -> int:
+        """Count the number of overcrowded branches"""
+        count = 0
+        for main_branch in self.branches:
+            count += sum(1 for b in main_branch.get_all_sub_branches() 
+                        if b.status == BranchStatus.STOPPED_OVERCROWDED)
+        return count
+
+    def prune(self, prune_ratio=0.2) -> dict:
+        """
+        Prune the plant focusing on space efficiency
+        """
+        all_sub_branches = []
+        inefficient_branches = []
+        
+        # Gather all branches and analyze their space efficiency
+        for main_branch in self.branches:
+            sub_branches = main_branch.get_all_sub_branches()
+            all_sub_branches.extend(sub_branches)
+            
+            for branch in sub_branches:
+                # Calculate space efficiency score for each branch
+                nearby_count = len(branch.get_nearby_branches(branch.get_end_pos(), radius=0.3))
+                leaf_count = sum(len(leaves) for leaves in branch.leaves.values())
+                
+                # Lower score = less efficient use of space
+                efficiency_score = leaf_count / (nearby_count + 1) if nearby_count > 0 else leaf_count
+                
+                # Add to inefficient list if score is low
+                if efficiency_score < 0.5:  # Threshold can be adjusted
+                    inefficient_branches.append((branch, efficiency_score))
+        
+        # Sort branches by efficiency score (least efficient first)
+        inefficient_branches.sort(key=lambda x: x[1])
+        
+        # Calculate how many to prune
+        to_prune_count = int(prune_ratio * len(all_sub_branches))
+        branches_to_prune = [b[0] for b in inefficient_branches[:to_prune_count]]
+        
+        # Remove selected branches
+        for branch in branches_to_prune:
+            if branch.parent is not None and branch in branch.parent.sub_branches:
+                branch.parent.sub_branches.remove(branch)
+        
+        # After pruning, re-check statuses
+        for main_branch in self.branches:
+            main_branch.recheck_status_after_pruning()
+        
+        return {
+            "pruned_total": len(branches_to_prune),
+            "pruned_inefficient": len(branches_to_prune)
+        }
+
+    def get_branch_status_counts(self):
+        """Count branches in each status"""
+        counts = {status: 0 for status in BranchStatus}
+        
+        def count_branch(branch):
+            counts[branch.status] += 1
+            for sb in branch.sub_branches:
+                count_branch(sb)
+        
+        for main_branch in self.branches:
+            count_branch(main_branch)
+        
+        return counts
+
+def run_simulation(steps: int = 150, enable_pruning: bool = False, 
+                  strategy: str = "fixed", random_seed: int = 42):
+    """
+    Run a single simulation with or without pruning.
+    
+    Args:
+        steps: Number of simulation steps
+        enable_pruning: Whether to enable pruning
+        strategy: Pruning strategy
+        random_seed: Seed for random number generation
+    """
+    # Set random seed for reproducibility
+    np.random.seed(random_seed)
+    
     plt.ion()
     plt.figure(figsize=(12, 5))
     plant = Blueberry()
     
     for step in range(steps):
+        # Grow the plant
         plant.grow()
+
+        if enable_pruning:
+            if strategy == "fixed":
+                if step in [50, 100, 150]:
+                    plant.prune(prune_ratio=0.2)
+                    
+            elif strategy == "adaptive":
+                overcrowded_count = plant.count_overcrowded_branches()
+                if overcrowded_count > 10:
+                    plant.prune(prune_ratio=0.2)
+                    
+            elif strategy == "progressive":
+                if step == 50:
+                    plant.prune(prune_ratio=0.1)
+                elif step == 100:
+                    plant.prune(prune_ratio=0.2)
+                elif step == 150:
+                    plant.prune(prune_ratio=0.3)
+                    
+            elif strategy == "regular_with_check":
+                if step > 0 and step % 50 == 0:
+                    overcrowded_count = plant.count_overcrowded_branches()
+                    ratio = 0.1  # base ratio
+                    if overcrowded_count > 20:
+                        ratio = 0.3
+                    elif overcrowded_count > 10:
+                        ratio = 0.2
+                    plant.prune(prune_ratio=ratio)
+            elif strategy == "space_efficient":
+                # Check space efficiency every 10 steps
+                if step % 10 == 0:
+                    # Calculate current space usage
+                    total_branches = sum(1 for b in plant.branches 
+                                      for sb in b.get_all_sub_branches())
+                    area_used = total_branches * plant.branch_area
+                    
+                    # If space usage is inefficient, prune more
+                    if area_used > plant.area * 0.8:  # 80% space threshold
+                        plant.prune(prune_ratio=0.2)
+                    elif area_used > plant.area * 0.6:  # 60% space threshold
+                        plant.prune(prune_ratio=0.1)
+        # Visualize
         plant.visualize(step)
     
     plt.ioff()
+    return plant.photosynthesis_history
+
+def compare_pruning_strategies(steps: int = 150, random_seed: int = 42):
+    """
+    Compare pruning vs non-pruning strategies using the same initial conditions.
+    """
+    # Run simulation without pruning
+    no_pruning_history = run_simulation(steps=steps, enable_pruning=False, random_seed=random_seed, strategy="fixed")
+    # Run simulation with fixed pruning
+    pruning_history_fixed = run_simulation(steps=steps, enable_pruning=True, random_seed=random_seed, strategy="fixed")
+    # Run simulation with pruning
+    pruning_history_space_efficient = run_simulation(steps=steps, enable_pruning=True, random_seed=random_seed, strategy="space_efficient")
+    
+    # Plot comparison
+    plt.figure(figsize=(10, 6))
+    plt.plot(no_pruning_history, 'b-', label='No Pruning')
+    plt.plot(pruning_history_fixed, 'r-', label='One Year Pruning')
+    plt.plot(pruning_history_space_efficient, 'g-', label='Keep track efficiency')
+    plt.title('Comparison of Pruning Strategies')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Photosynthesis Rate')
+    plt.legend()
+    plt.grid(True)
     plt.show()
 
 if __name__ == "__main__":
-    run_simulation()
+    # Try different random seeds
+    for seed in [42]: #[123,456]
+        print(f"\nTrying seed: {seed}")
+        compare_pruning_strategies(random_seed=seed)
